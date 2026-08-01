@@ -56,39 +56,65 @@ const io = new Server(server, {
     }
 });
 
+// Helper to check if an IP address belongs to virtual machines or Docker internal bridge subnets
+function isVirtualIp(ip) {
+    if (!ip) return true;
+    if (ip.startsWith('172.')) {
+        const secondOctet = parseInt(ip.split('.')[1], 10);
+        // Docker internal bridge subnets typically span 172.17.x.x through 172.31.x.x
+        if (secondOctet >= 17 && secondOctet <= 31) {
+            return true;
+        }
+    }
+    // Default Docker desktop network on mac/windows, VMware/VirtualBox default switches, and KVM virbr0
+    if (ip.startsWith('192.168.65.') || ip.startsWith('10.0.2.') || ip.startsWith('192.168.122.')) {
+        return true;
+    }
+    return false;
+}
+
 function getLocalIp() {
     if (process.env.HOST_IP) {
         return process.env.HOST_IP;
     }
     const interfaces = os.networkInterfaces();
     
-    // Pass 1: Strictly prioritize WLAN and Wi-Fi
+    // Pass 1: Strictly prioritize WLAN and Wi-Fi non-virtual physical IPs
     for (const name of Object.keys(interfaces)) {
-        if (name.toLowerCase().includes('wlan') || name.toLowerCase().includes('wi-fi')) {
+        if (name.toLowerCase().includes('wlan') || name.toLowerCase().includes('wi-fi') || name.toLowerCase().startsWith('wl')) {
             for (const iface of interfaces[name]) {
-                if (iface.family === 'IPv4' && !iface.internal) {
+                if (iface.family === 'IPv4' && !iface.internal && !isVirtualIp(iface.address)) {
                     return iface.address;
                 }
             }
         }
     }
     
-    // Pass 2: Fallback to ETH, EN, or Ethernet
+    // Pass 2: Fallback to ETH, EN, or Ethernet non-virtual physical IPs
     for (const name of Object.keys(interfaces)) {
         if (name.toLowerCase().startsWith('eth') || name.toLowerCase().startsWith('en') || name.toLowerCase().includes('ethernet')) {
             for (const iface of interfaces[name]) {
-                if (iface.family === 'IPv4' && !iface.internal) {
+                if (iface.family === 'IPv4' && !iface.internal && !isVirtualIp(iface.address)) {
                     return iface.address;
                 }
             }
         }
     }
     
-    // Pass 3: Fallback to any other physical interface (exclude virtual/docker/lo)
+    // Pass 3: Fallback to any other physical interface non-virtual IPs
     for (const name of Object.keys(interfaces)) {
-        if (name.toLowerCase().includes('docker') || name.toLowerCase().startsWith('br-') || name.toLowerCase().startsWith('veth')) {
+        if (name.toLowerCase().includes('docker') || name.toLowerCase().startsWith('br-') || name.toLowerCase().startsWith('veth') || name.toLowerCase().startsWith('virbr') || name.toLowerCase().includes('vmnet')) {
             continue;
         }
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal && !isVirtualIp(iface.address)) {
+                return iface.address;
+            }
+        }
+    }
+
+    // Pass 4: If no real physical IP found, pick the first valid non-internal IPv4 as a fallback
+    for (const name of Object.keys(interfaces)) {
         for (const iface of interfaces[name]) {
             if (iface.family === 'IPv4' && !iface.internal) {
                 return iface.address;
