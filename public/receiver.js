@@ -173,16 +173,23 @@ function createMessageElement(message) {
 // Receive history on connect
 socket.on('history', (messages) => {
     messageList.innerHTML = '';
-    // Reverse so newest is at the top
-    const reversed = [...messages].reverse();
-    reversed.forEach(msg => {
+    // Append in chronological order so the newest message is at the bottom
+    messages.forEach(msg => {
         messageList.appendChild(createMessageElement(msg));
     });
+    // Automatically scroll to view the latest messages at the bottom
+    const historySection = document.querySelector('.history-section');
+    if (historySection) historySection.scrollTop = historySection.scrollHeight;
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 });
 
 // Receive a single message
 socket.on('receive_message', (message) => {
-    messageList.insertBefore(createMessageElement(message), messageList.firstChild);
+    messageList.appendChild(createMessageElement(message));
+    // Automatically scroll to view the latest message at the bottom
+    const historySection = document.querySelector('.history-section');
+    if (historySection) historySection.scrollTop = historySection.scrollHeight;
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 });
 
 // Clear messages
