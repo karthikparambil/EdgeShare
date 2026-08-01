@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edgeshare</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="loginOverlay" class="login-overlay" style="display: none;">
+        <div class="login-box">
+            <h2>Waiting for device...</h2>
+            <p class="subtitle">Scan to connect</p>
+            <img id="qrImage" src="" alt="QR Code" style="display: block; margin: 0 auto 1rem; max-width: 100%; width: 250px; height: 250px;">
+            <p id="loginError" class="error-message" style="display: none;">Connection error</p>
+            <button id="closeQrBtn" style="margin-top: 1rem; padding: 0.5rem 1rem;">Close</button>
+        </div>
+    </div>
+
+    <div class="dashboard-layout" style="display: flex; width: 100vw; height: 100vh; overflow: hidden;">
+        <aside class="sidebar" style="width: 250px; background: var(--surface-color); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 1.5rem 1rem;">
+            <h2 style="margin-bottom: 2rem; padding-left: 0.5rem;">Edgeshare</h2>
+            <nav class="sidebar-nav" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <button class="nav-btn active" data-view="messagingView" style="text-align: left; padding: 0.8rem 1rem; border-radius: 8px; background: transparent; color: var(--text-primary); border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg> Messaging
+                </button>
+                <button class="nav-btn" data-view="deviceInfoView" style="text-align: left; padding: 0.8rem 1rem; border-radius: 8px; background: transparent; color: var(--text-secondary); border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg> Device Info
+                </button>
+                <button class="nav-btn" data-view="usersView" style="text-align: left; padding: 0.8rem 1rem; border-radius: 8px; background: transparent; color: var(--text-secondary); border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> Users
+                </button>
+                <button class="nav-btn" data-view="requestsView" style="text-align: left; padding: 0.8rem 1rem; border-radius: 8px; background: transparent; color: var(--text-secondary); border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg> Requests
+                </button>
+                <button class="nav-btn" data-view="settingsView" style="text-align: left; padding: 0.8rem 1rem; border-radius: 8px; background: transparent; color: var(--text-secondary); border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg> Settings
+                </button>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1rem 0;">
+                <button class="nav-btn primary" id="sidebarQrBtn" style="text-align: left; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M3 3h8v8H3zm2 2v4h4V5zm8-2h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zm13-2h3v2h-3zm-3 0h2v2h-2zm3 3h3v2h-3zm-2 3h2v2h-2zm-3-3h2v2h-2z"/></svg>
+                    Pair Device
+                </button>
+            </nav>
+        </aside>
+
+        <main class="content-area" style="flex: 1; position: relative; display: flex; flex-direction: column;">
+            <div class="view-container active" id="messagingView" style="display: flex; flex-direction: column; height: 100%;">
+                <div class="container" id="mainApp" style="display: flex; max-width: 100%; width: 100%; padding: 2rem 5vw; height: 100%;">
+        <section class="history-section">
+            <header>
+                <h1>Edgeshare Sender</h1>
+                <p class="subtitle">Quickly beam text to your phone</p>
+            </header>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h2>Recent</h2>
+                <button id="clearBtn" title="Clear All Messages" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    Clear
+                </button>
+            </div>
+            <div class="message-list" id="messageList">
+                <!-- Messages will appear here -->
+            </div>
+        </section>
+
+        <section class="input-section">
+            <input type="file" id="fileInput" style="display: none;" multiple>
+            <textarea id="messageInput" placeholder="Type or paste something..."></textarea>
+            <div id="uploadProgressContainer" style="display: none; margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-secondary);">
+                    <span id="uploadFileName" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">Uploading...</span>
+                    <span id="uploadPercent">0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="uploadProgressBar"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="attachBtn" title="Attach File">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+                    Attach
+                </button>
+                <button id="pasteBtn" title="Quick Paste">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+                    Paste
+                </button>
+                <button id="sendBtn" class="primary">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    Send
+                </button>
+            </div>
+        </section>
+                </div>
+            </div>
+
+            <div class="view-container" id="deviceInfoView" style="display: none; padding: 2rem 5vw; flex-direction: column; gap: 1rem;">
+                <h1>Device Info</h1>
+                <div style="background: var(--surface-color); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 0.5rem;">Connection Status</h3>
+                    <p style="color: var(--text-secondary);">Phone Paired: <strong id="phoneStatusIndicator" style="color: var(--text-primary);">Waiting...</strong></p>
+                </div>
+                <div style="background: var(--surface-color); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 0.5rem;">Server Details</h3>
+                    <p style="color: var(--text-secondary);">Local URL: <strong id="serverUrlIndicator" style="color: var(--text-primary);">Loading...</strong></p>
+                </div>
+                <h3 style="margin-top: 1rem;">Connected Devices</h3>
+                <ul id="deviceInfoList" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                </ul>
+            </div>
+
+            <div class="view-container" id="usersView" style="display: none; padding: 2rem 5vw; flex-direction: column; gap: 1rem;">
+                <h1>Connected Users</h1>
+                <ul id="usersList" style="margin-top: 1rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                </ul>
+                <h2 style="margin-top: 2rem;">Blocked IPs</h2>
+                <ul id="blockedList" style="margin-top: 1rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                </ul>
+            </div>
+
+            <div class="view-container" id="requestsView" style="display: none; padding: 2rem 5vw; flex-direction: column; gap: 1rem;">
+                <h1>Access Requests</h1>
+                <p style="color: var(--text-secondary);">Manage devices waiting for approval to join.</p>
+                <ul id="requestsList" style="margin-top: 1rem; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                </ul>
+            </div>
+
+            <div class="view-container" id="settingsView" style="display: none; padding: 2rem 5vw; flex-direction: column; gap: 1rem;">
+                <h1>Settings</h1>
+                <div style="background: var(--surface-color); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <p style="color: var(--text-secondary);">No settings available yet.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="dragOverlay" class="drag-overlay" style="display: none;">
+        <div class="drag-content">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 64px; height: 64px; fill: white; margin-bottom: 1rem;"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+            <h2>Drop files to share</h2>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="sender.js?v=3"></script>
+</body>
+</html>
