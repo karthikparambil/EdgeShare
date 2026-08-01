@@ -15,13 +15,30 @@ const closeQrBtn = document.getElementById('closeQrBtn');
 const phoneStatusIndicator = document.getElementById('phoneStatusIndicator');
 const serverUrlIndicator = document.getElementById('serverUrlIndicator');
 
+let overlayTimeout = null;
 function toggleQrOverlay(show) {
     if (!loginOverlay) return;
-    if (typeof show === 'boolean') {
-        loginOverlay.style.display = show ? 'flex' : 'none';
-    } else {
-        const isHidden = loginOverlay.style.display === 'none' || window.getComputedStyle(loginOverlay).display === 'none';
-        loginOverlay.style.display = isHidden ? 'flex' : 'none';
+    const isCurrentlyHidden = loginOverlay.style.display === 'none' || window.getComputedStyle(loginOverlay).display === 'none';
+    const shouldShow = typeof show === 'boolean' ? show : isCurrentlyHidden;
+    
+    if (overlayTimeout) clearTimeout(overlayTimeout);
+
+    if (shouldShow && isCurrentlyHidden) {
+        // Trigger opening zoom & fade animation
+        loginOverlay.classList.add('hidden-animate');
+        loginOverlay.style.display = 'flex';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                loginOverlay.classList.remove('hidden-animate');
+            });
+        });
+    } else if (!shouldShow && !isCurrentlyHidden) {
+        // Trigger closing zoom & fade animation before hiding display
+        loginOverlay.classList.add('hidden-animate');
+        overlayTimeout = setTimeout(() => {
+            loginOverlay.style.display = 'none';
+            loginOverlay.classList.remove('hidden-animate');
+        }, 260);
     }
 }
 
@@ -78,7 +95,16 @@ navBtns.forEach(btn => {
     });
 });
 
-// Fetch QR code
+// --- Helper Functions ---
+function formatSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Fetch QR Code dynamically from server (no authentication needed for localhost)
 function fetchQR() {
     fetch('/api/qr?t=' + Date.now())
         .then(res => res.json())
@@ -107,7 +133,7 @@ socket.on('connect', () => {
 });
 
 socket.on('device_paired', () => {
-    loginOverlay.style.display = 'none';
+    toggleQrOverlay(false);
     if (phoneStatusIndicator) {
         phoneStatusIndicator.textContent = 'Connected ✅';
         phoneStatusIndicator.style.color = 'var(--success-color)';
@@ -128,7 +154,7 @@ socket.on("connect_error", (err) => {
     if (err.message === "invalid_passcode") {
         appToken = '';
         socket.disconnect();
-        loginOverlay.style.display = 'flex';
+        toggleQrOverlay(true);
         fetchQR();
     }
 });
