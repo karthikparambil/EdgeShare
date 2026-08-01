@@ -57,6 +57,9 @@ const io = new Server(server, {
 });
 
 function getLocalIp() {
+    if (process.env.HOST_IP) {
+        return process.env.HOST_IP;
+    }
     const interfaces = os.networkInterfaces();
     
     // Pass 1: Strictly prioritize WLAN and Wi-Fi
@@ -113,11 +116,22 @@ const expressAuth = (req, res, next) => {
 // Helper to verify if an IP address is local loopback (localhost / 127.0.0.1 / ::1)
 function isLocalhost(ip) {
     if (!ip) return false;
-    return ip === '127.0.0.1' || 
-           ip === '::1' || 
-           ip === '::ffff:127.0.0.1' || 
-           ip.startsWith('127.') || 
-           ip.startsWith('::ffff:127.');
+    if (ip === '127.0.0.1' || 
+        ip === '::1' || 
+        ip === '::ffff:127.0.0.1' || 
+        ip.startsWith('127.') || 
+        ip.startsWith('::ffff:127.')) {
+        return true;
+    }
+    // Allow standard Docker gateway bridge IPs when running inside a Docker container
+    if (process.env.DOCKER === 'true') {
+        if (ip.startsWith('172.') || ip.startsWith('::ffff:172.') || 
+            ip === '192.168.65.1' || ip === '::ffff:192.168.65.1' || 
+            ip.endsWith('.1')) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Route for desktop to get QR code

@@ -1,0 +1,16 @@
+services:
+  edgeshare:
+    build: .
+    container_name: edgeshare-server
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    environment:
+      - PORT=9999
+      - DOCKER=true
+      # If your phone cannot connect via QR code because Docker assigns an internal IP (e.g. 172.17.x.x),
+      # uncomment the HOST_IP line below and enter your desktop computer's local Wi-Fi / LAN IP address:
+      # - HOST_IP=192.168.1.100
+    volumes:
+      # Persist transferred files directly in your workspace uploads folder on the host system
+      - ./uploads:/usr/src/app/uploads
