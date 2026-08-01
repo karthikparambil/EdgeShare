@@ -65,7 +65,7 @@ function fetchQR() {
         .then(data => {
             if (data.qr) {
                 qrImage.src = data.qr;
-                if (serverUrlIndicator) serverUrlIndicator.textContent = "Online and ready (port 3000)";
+                if (serverUrlIndicator) serverUrlIndicator.textContent = "Online and ready (port 9999)";
             }
             if (data.token) {
                 appToken = data.token;

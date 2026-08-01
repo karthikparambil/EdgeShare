@@ -6,7 +6,7 @@ const puppeteer = require('puppeteer');
   
   page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
   
-  await page.goto('http://localhost:3000', { waitUntil: 'networkidle0' });
+  await page.goto('http://localhost:9999', { waitUntil: 'networkidle0' });
   
   // Click on users tab
   await page.evaluate(() => {
