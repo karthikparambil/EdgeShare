@@ -15,16 +15,36 @@ const closeQrBtn = document.getElementById('closeQrBtn');
 const phoneStatusIndicator = document.getElementById('phoneStatusIndicator');
 const serverUrlIndicator = document.getElementById('serverUrlIndicator');
 
+function toggleQrOverlay(show) {
+    if (!loginOverlay) return;
+    if (typeof show === 'boolean') {
+        loginOverlay.style.display = show ? 'flex' : 'none';
+    } else {
+        const isHidden = loginOverlay.style.display === 'none' || window.getComputedStyle(loginOverlay).display === 'none';
+        loginOverlay.style.display = isHidden ? 'flex' : 'none';
+    }
+}
+
 if (sidebarQrBtn) {
     sidebarQrBtn.addEventListener('click', () => {
-        loginOverlay.style.display = 'flex';
+        toggleQrOverlay(true);
     });
 }
 if (closeQrBtn) {
     closeQrBtn.addEventListener('click', () => {
-        loginOverlay.style.display = 'none';
+        toggleQrOverlay(false);
     });
 }
+
+// Global keyboard shortcut: Ctrl+Q to toggle QR code pairing overlay, Esc to close
+window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'q') {
+        e.preventDefault();
+        toggleQrOverlay();
+    } else if (e.key === 'Escape' && loginOverlay && loginOverlay.style.display !== 'none') {
+        toggleQrOverlay(false);
+    }
+});
 
 // Sidebar Routing Logic
 const navBtns = document.querySelectorAll('.sidebar-nav .nav-btn[data-view]');
