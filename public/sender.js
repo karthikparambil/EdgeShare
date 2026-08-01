@@ -574,3 +574,24 @@ window.addEventListener('drop', (e) => {
         uploadFiles(e.dataTransfer.files);
     }
 });
+
+// --- System Settings Controls ---
+const restartServerBtn = document.getElementById('restartServerBtn');
+if (restartServerBtn) {
+    restartServerBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to restart the EdgeShare service? All mobile devices will be disconnected and session tokens regenerated.')) {
+            restartServerBtn.disabled = true;
+            restartServerBtn.style.opacity = '0.6';
+            restartServerBtn.style.cursor = 'not-allowed';
+            restartServerBtn.innerHTML = 'Restarting...';
+            
+            socket.emit('admin_action', { action: 'restart' });
+            
+            // Reload page automatically once server finishes restarting
+            setTimeout(() => {
+                window.location.reload();
+            }, 2500);
+        }
+    });
+}
+

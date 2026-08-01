@@ -379,6 +379,27 @@ io.on('connection', (socket) => {
                 targetSocket.emit('request_denied');
                 targetSocket.disconnect(true);
             }
+        } else if (data.action === 'restart') {
+            console.log('[SYSTEM] Service restart requested from desktop dashboard...');
+            io.emit('service_restarting', { message: 'Server is restarting...' });
+            
+            setTimeout(() => {
+                if (process.env.DOCKER === 'true') {
+                    // Under Docker Compose restart policy, exiting cleanly reboots the container
+                    process.exit(1);
+                } else {
+                    // Under standard terminal execution, spawn a fresh background server and terminate the current one
+                    const { spawn } = require('child_process');
+                    const child = spawn(process.argv[0], process.argv.slice(1), {
+                        env: process.env,
+                        detached: true,
+                        stdio: 'inherit'
+                    });
+                    child.unref();
+                    process.exit(0);
+                }
+            }, 700);
+            return;
         }
         
         // Immediately broadcast the updated lists to all clients
