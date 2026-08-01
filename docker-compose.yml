@@ -2,7 +2,7 @@ services:
   edgeshare:
     build: .
     container_name: edgeshare-server
-    restart: unless-stopped
+    restart: always
     # Using host network mode natively attaches the Docker container to your host computer's Wi-Fi
     # and Ethernet network interfaces, preventing Docker from generating isolated virtual IPs (172.17.x.x).
     network_mode: "host"
