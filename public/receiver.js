@@ -46,6 +46,40 @@ socket.on('request_denied', () => {
     localStorage.removeItem('textit_passcode');
 });
 
+// Helper to immediately wipe messages and show lockout message screen
+function revokeClientAccess(messageText) {
+    if (mainApp) mainApp.style.display = 'none';
+    const waitingOverlay = document.getElementById('waitingOverlay');
+    if (waitingOverlay) waitingOverlay.style.display = 'none';
+    if (loginOverlay) loginOverlay.style.display = 'none';
+    
+    // Purge chat history completely from HTML DOM so messages cannot be read
+    const msgList = document.getElementById('messageList');
+    if (msgList) msgList.innerHTML = '';
+    
+    localStorage.removeItem('edgeshare_passcode');
+    localStorage.removeItem('textit_passcode');
+    
+    const revokedOverlay = document.getElementById('revokedOverlay');
+    const revokedMessage = document.getElementById('revokedMessage');
+    if (revokedMessage && messageText) revokedMessage.textContent = messageText;
+    if (revokedOverlay) revokedOverlay.style.display = 'flex';
+}
+
+socket.on('access_revoked', (data) => {
+    revokeClientAccess(data.message || 'Your connection access has been revoked by the desktop server.');
+    socket.disconnect();
+});
+
+socket.on('disconnect', (reason) => {
+    if (reason === 'io server disconnect') {
+        const revokedOverlay = document.getElementById('revokedOverlay');
+        if (revokedOverlay && revokedOverlay.style.display !== 'flex') {
+            revokeClientAccess('You have been disconnected by the desktop host.');
+        }
+    }
+});
+
 // Handle authentication errors
 socket.on("connect_error", (err) => {
     if (err.message === "invalid_passcode") {
@@ -59,6 +93,9 @@ socket.on("connect_error", (err) => {
         loginError.textContent = 'Another device is already connected.';
         localStorage.removeItem('edgeshare_passcode');
         localStorage.removeItem('textit_passcode');
+        socket.disconnect();
+    } else if (err.message === "ip_blocked") {
+        revokeClientAccess('Your device IP has been blocked by the administrator.');
         socket.disconnect();
     }
 });

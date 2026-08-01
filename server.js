@@ -357,12 +357,16 @@ io.on('connection', (socket) => {
         const targetSocket = io.sockets.sockets.get(data.targetId);
         
         if (data.action === 'kick' && targetSocket) {
-            targetSocket.disconnect(true);
+            targetSocket.emit('access_revoked', { reason: 'kicked', message: 'You have been kicked and disconnected by the desktop host.' });
+            setTimeout(() => targetSocket.disconnect(true), 150);
         } else if (data.action === 'block') {
             const targetIp = data.targetId ? sessionManager.connectedUsers[data.targetId]?.ip : null;
             if (targetIp) {
                 sessionManager.blockIp(targetIp);
-                if (targetSocket) targetSocket.disconnect(true);
+                if (targetSocket) {
+                    targetSocket.emit('access_revoked', { reason: 'blocked', message: 'Your device IP has been blocked from accessing the EdgeShare server.' });
+                    setTimeout(() => targetSocket.disconnect(true), 150);
+                }
             }
         } else if (data.action === 'unblock' && data.targetIp) {
             sessionManager.unblockIp(data.targetIp);

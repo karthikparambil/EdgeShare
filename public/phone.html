@@ -25,6 +25,15 @@
         </div>
     </div>
 
+    <div id="revokedOverlay" class="login-overlay" style="display: none;">
+        <div class="login-box" style="border-color: #ef4444; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2);">
+            <svg viewBox="0 0 24 24" style="width: 56px; height: 56px; fill: #ef4444; margin: 0 auto 0.2rem;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <h2 style="color: #ef4444; margin: 0;">Access Revoked</h2>
+            <p id="revokedMessage" class="subtitle" style="margin-top: 0.5rem; font-size: 1.05rem; color: var(--text-primary);">You have been disconnected from the EdgeShare server.</p>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.8rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">All shared messages and file histories have been wiped from your screen for security.</p>
+        </div>
+    </div>
+
     <div class="container phone-container" id="mainApp" style="display: none;">
         <section class="history-section">
             <header>
