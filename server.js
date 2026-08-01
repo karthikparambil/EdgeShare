@@ -149,13 +149,14 @@ function isLocalhost(ip) {
         ip.startsWith('::ffff:127.')) {
         return true;
     }
-    // Allow standard Docker gateway bridge IPs when running inside a Docker container
+    // Allow ONLY strict Docker internal bridge proxy gateways when running inside container
     if (process.env.DOCKER === 'true') {
-        if (ip.startsWith('172.') || ip.startsWith('::ffff:172.') || 
-            ip === '192.168.65.1' || ip === '::ffff:192.168.65.1' || 
-            ip.endsWith('.1')) {
-            return true;
-        }
+        const strictGateways = [
+            '172.17.0.1', '::ffff:172.17.0.1',
+            '172.18.0.1', '::ffff:172.18.0.1',
+            '192.168.65.1', '::ffff:192.168.65.1'
+        ];
+        return strictGateways.includes(ip);
     }
     return false;
 }
