@@ -15,6 +15,22 @@ const closeQrBtn = document.getElementById('closeQrBtn');
 const phoneStatusIndicator = document.getElementById('phoneStatusIndicator');
 const serverUrlIndicator = document.getElementById('serverUrlIndicator');
 
+const messagingBadge = document.getElementById('messagingBadge');
+const usersBadge = document.getElementById('usersBadge');
+const requestsBadge = document.getElementById('requestsBadge');
+let unreadMessagesCount = 0;
+
+function updatePageTitle() {
+    const pendingCount = requestsBadge && requestsBadge.style.display !== 'none' ? parseInt(requestsBadge.textContent || '0', 10) : 0;
+    if (pendingCount > 0) {
+        document.title = `(${pendingCount}) Edgeshare - New Request!`;
+    } else if (unreadMessagesCount > 0) {
+        document.title = `(${unreadMessagesCount}) Edgeshare`;
+    } else {
+        document.title = 'Edgeshare';
+    }
+}
+
 let overlayTimeout = null;
 function toggleQrOverlay(show) {
     if (!loginOverlay) return;
@@ -84,8 +100,13 @@ navBtns.forEach(btn => {
             if (view.id === targetView) {
                 view.style.display = 'flex';
                 view.classList.add('active');
-                if (targetView === 'usersView') {
+                if (targetView === 'usersView' || targetView === 'requestsView' || targetView === 'deviceInfoView') {
                     socket.emit('request_users');
+                }
+                if (targetView === 'messagingView') {
+                    unreadMessagesCount = 0;
+                    if (messagingBadge) messagingBadge.style.display = 'none';
+                    updatePageTitle();
                 }
             } else {
                 view.style.display = 'none';
@@ -401,11 +422,24 @@ socket.on('receive_message', (message) => {
     // Scroll to bottom
     const historySection = document.querySelector('.history-section');
     historySection.scrollTop = historySection.scrollHeight;
+
+    const messagingView = document.getElementById('messagingView');
+    if (messagingView && !messagingView.classList.contains('active')) {
+        unreadMessagesCount++;
+        if (messagingBadge) {
+            messagingBadge.textContent = unreadMessagesCount;
+            messagingBadge.style.display = 'inline-flex';
+        }
+        updatePageTitle();
+    }
 });
 
 // Clear messages
 socket.on('messages_cleared', () => {
     messageList.innerHTML = '';
+    unreadMessagesCount = 0;
+    if (messagingBadge) messagingBadge.style.display = 'none';
+    updatePageTitle();
 });
 
 const usersList = document.getElementById('usersList');
@@ -418,6 +452,19 @@ socket.on('users_update', (data) => {
         console.error("Missing DOM elements!", { usersList, blockedList, requestsList, deviceInfoList });
         return;
     }
+
+    if (usersBadge) {
+        const activeCount = (data.active || []).length;
+        usersBadge.textContent = activeCount;
+        usersBadge.style.display = 'inline-flex';
+    }
+    if (requestsBadge) {
+        const pendingCount = (data.pending || []).length;
+        requestsBadge.textContent = pendingCount;
+        requestsBadge.style.display = pendingCount > 0 ? 'inline-flex' : 'none';
+    }
+    updatePageTitle();
+
     usersList.innerHTML = '';
     blockedList.innerHTML = '';
     requestsList.innerHTML = '';
