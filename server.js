@@ -9,10 +9,9 @@ const crypto = require('crypto');
 const qrcode = require('qrcode');
 const UAParser = require('ua-parser-js');
 const sessionManager = require('./sessionManager');
-// Ensure temporary uploads directory exists in current working directory (cross-platform compatible for Windows, Linux, and macOS)
+
 const uploadsDir = path.join(__dirname, 'uploads');
 if (fs.existsSync(uploadsDir)) {
-    // Clean up old temporary files from previous sessions
     fs.readdirSync(uploadsDir).forEach(file => {
         if (file !== '.gitkeep' && file !== '.gitignore') {
             const filePath = path.join(uploadsDir, file);
@@ -37,7 +36,6 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        // Replace spaces with underscores and remove problematic characters
         const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
         cb(null, uniqueSuffix + '-' + safeName);
     }
@@ -56,7 +54,6 @@ const io = new Server(server, {
     }
 });
 
-// Helper to check if a network interface name corresponds to a virtual, bridge, container, or tunnel interface
 function isVirtualInterface(name) {
     if (!name) return true;
     const lower = name.toLowerCase();
@@ -76,20 +73,18 @@ function isVirtualInterface(name) {
     );
 }
 
-// Helper to check if an IP address belongs to known virtual machine, container, hotspot, or hypervisor subnets
 function isKnownVirtualSubnet(ip) {
     if (!ip) return true;
-    if (ip.startsWith('10.42.') ||       // Linux NetworkManager connection sharing / hotspot default
-        ip.startsWith('10.0.2.') ||      // VirtualBox / QEMU / KVM user NAT
-        ip.startsWith('192.168.122.') || // libvirt virbr0 bridge
-        ip.startsWith('192.168.56.') ||  // VirtualBox Host-Only adapter
-        ip.startsWith('192.168.65.') ||  // Docker Desktop VM network
-        ip.startsWith('192.168.99.')) {  // Docker Machine / Minikube
+    if (ip.startsWith('10.42.') ||       
+        ip.startsWith('10.0.2.') ||      
+        ip.startsWith('192.168.122.') || 
+        ip.startsWith('192.168.56.') || 
+        ip.startsWith('192.168.65.') ||  
+        ip.startsWith('192.168.99.')) { 
         return true;
     }
     if (ip.startsWith('172.')) {
         const secondOctet = parseInt(ip.split('.')[1], 10);
-        // Docker internal bridge subnets typically span 172.17.x.x through 172.31.x.x
         if (secondOctet >= 17 && secondOctet <= 31) {
             return true;
         }
@@ -97,7 +92,6 @@ function isKnownVirtualSubnet(ip) {
     return false;
 }
 
-// Helper to check if an IP address is an RFC 1918 private IPv4 address
 function isPrivateIp(ip) {
     if (!ip) return false;
     const parts = ip.split('.');
@@ -105,13 +99,10 @@ function isPrivateIp(ip) {
     const octet1 = parseInt(parts[0], 10);
     const octet2 = parseInt(parts[1], 10);
     
-    // 10.0.0.0 - 10.255.255.255 (10/8 prefix)
     if (octet1 === 10) return true;
     
-    // 172.16.0.0 - 172.31.255.255 (172.16/12 prefix)
     if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) return true;
     
-    // 192.168.0.0 - 192.168.255.255 (192.168/16 prefix)
     if (octet1 === 192 && octet2 === 168) return true;
     
     return false;
@@ -123,7 +114,6 @@ function getLocalIp() {
     }
     const interfaces = os.networkInterfaces();
     
-    // Pass 1: Strictly prioritize non-virtual WLAN and Wi-Fi physical interfaces (e.g., wlan0, wlan1, wlp2s0) with real LAN private IPv4 addresses
     for (const name of Object.keys(interfaces)) {
         if (!isVirtualInterface(name) && (name.toLowerCase().includes('wlan') || name.toLowerCase().includes('wi-fi') || name.toLowerCase().startsWith('wl'))) {
             for (const iface of interfaces[name]) {
@@ -134,7 +124,6 @@ function getLocalIp() {
         }
     }
     
-    // Pass 2: Strictly prioritize non-virtual Ethernet physical interfaces (e.g., eth0, eth1, enp3s0) with real LAN private IPv4 addresses
     for (const name of Object.keys(interfaces)) {
         if (!isVirtualInterface(name) && (name.toLowerCase().startsWith('eth') || name.toLowerCase().startsWith('en') || name.toLowerCase().includes('ethernet'))) {
             for (const iface of interfaces[name]) {
@@ -145,7 +134,6 @@ function getLocalIp() {
         }
     }
     
-    // Pass 3: Fallback to any other physical interface for real LAN private IPv4 addresses
     for (const name of Object.keys(interfaces)) {
         if (!isVirtualInterface(name)) {
             for (const iface of interfaces[name]) {
@@ -156,7 +144,6 @@ function getLocalIp() {
         }
     }
 
-    // Pass 4: If no standard real LAN private IP found, fallback to any valid non-internal IPv4 on physical Wi-Fi or Ethernet interfaces (including hotspot subnets like 10.42.x.x)
     for (const name of Object.keys(interfaces)) {
         if (!isVirtualInterface(name)) {
             for (const iface of interfaces[name]) {
@@ -167,7 +154,6 @@ function getLocalIp() {
         }
     }
 
-    // Pass 5: Final fallback to any valid non-internal IPv4 address
     for (const name of Object.keys(interfaces)) {
         for (const iface of interfaces[name]) {
             if ((iface.family === 'IPv4' || iface.family === 4) && !iface.internal) {
@@ -180,7 +166,6 @@ function getLocalIp() {
 }
 
 
-// Express Authentication Middleware
 const expressAuth = (req, res, next) => {
     if (sessionManager.isIpBlocked(req.ip)) {
         return res.status(403).json({ error: "Blocked" });
@@ -193,7 +178,6 @@ const expressAuth = (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
 };
 
-// Helper to verify if an IP address is local loopback (localhost / 127.0.0.1 / ::1)
 function isLocalhost(ip) {
     if (!ip) return false;
     if (ip === '127.0.0.1' || 
@@ -203,7 +187,6 @@ function isLocalhost(ip) {
         ip.startsWith('::ffff:127.')) {
         return true;
     }
-    // Allow ONLY strict Docker internal bridge proxy gateways when running inside container
     if (process.env.DOCKER === 'true') {
         const strictGateways = [
             '172.17.0.1', '::ffff:172.17.0.1',
@@ -215,12 +198,10 @@ function isLocalhost(ip) {
     return false;
 }
 
-// Route for desktop to get QR code
 app.get('/api/qr', async (req, res) => {
     if (!isLocalhost(req.ip)) {
         return res.status(403).json({ error: "Access denied: Server controls can only be accessed via localhost/127.0.0.1." });
     }
-    // Disable caching for this route
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -230,7 +211,6 @@ app.get('/api/qr', async (req, res) => {
         const port = req.socket.localPort || PORT;
         const url = `http://${ip}:${port}/connect/${sessionManager.getPairToken()}`;
         
-        // Generate SVG instead of PNG for clarity
         const svgString = await qrcode.toString(url, { type: 'svg' });
         const dynamicQrCode = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
         
@@ -241,7 +221,6 @@ app.get('/api/qr', async (req, res) => {
     }
 });
 
-// Route for phone to connect via QR
 app.get('/connect/:token', (req, res) => {
     if (sessionManager.isIpBlocked(req.ip)) {
         return res.status(403).send('Your IP is blocked.');
@@ -255,7 +234,6 @@ app.get('/connect/:token', (req, res) => {
     }
 });
 
-// Restrict desktop sender script to localhost
 app.get('/sender.js', (req, res, next) => {
     if (!isLocalhost(req.ip)) {
         return res.status(403).send('// Access Denied: only localhost can access desktop scripts.');
@@ -263,7 +241,6 @@ app.get('/sender.js', (req, res, next) => {
     next();
 });
 
-// Force no-cache for index.html and enforce localhost restriction for desktop UI
 app.get(['/', '/index.html'], (req, res) => {
     if (!isLocalhost(req.ip)) {
         return res.status(403).send('<h2>Access Denied</h2><p>The server desktop dashboard is restricted and can only be accessed via localhost/127.0.0.1.</p>');
@@ -274,10 +251,8 @@ app.get(['/', '/index.html'], (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// File upload endpoint
 app.post('/upload', expressAuth, upload.single('file'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
@@ -289,14 +264,10 @@ app.post('/upload', expressAuth, upload.single('file'), (req, res) => {
     });
 });
 
-// Serve uploaded files securely
 app.use('/uploads', expressAuth, express.static(uploadsDir));
 
-// Store the last 50 messages in memory for new connections
 const messageHistory = [];
 const HISTORY_LIMIT = 50;
-
-// Authentication Middleware
 io.use((socket, next) => {
     const ip = socket.handshake.address;
     if (sessionManager.isIpBlocked(ip)) {
@@ -326,7 +297,6 @@ io.on('connection', (socket) => {
     const parser = new UAParser(userAgent);
     const parsedUa = parser.getResult();
     
-    // Create a compact device info string for the UI
     const deviceType = parsedUa.device.type || (parsedUa.os.name === 'iOS' || parsedUa.os.name === 'Android' ? 'mobile' : 'desktop');
     const browser = parsedUa.browser.name || 'Unknown Browser';
     const os = parsedUa.os.name || 'Unknown OS';
@@ -343,8 +313,6 @@ io.on('connection', (socket) => {
     };
 
     let isApproved = sessionManager.approvedIps.has(ip);
-    
-    // Automatically approve the very first phone without requiring explicit permission or request
     if (socket.role === 'phone' && !isApproved && sessionManager.approvedIps.size === 0 && !sessionManager.hasPhone()) {
         sessionManager.approvedIps.add(ip);
         sessionManager.approvedPhones.add(socket.id);
@@ -354,7 +322,6 @@ io.on('connection', (socket) => {
     }
 
     if (socket.role === 'phone' && !isApproved) {
-        // Subsequent new phone connections require manual desktop approval
         sessionManager.addPendingRequest(socket.id, ip, deviceInfoStr);
         broadcastUsersUpdate();
     } else {
@@ -363,7 +330,6 @@ io.on('connection', (socket) => {
         
         if (socket.role === 'phone') {
             io.to(socket.id).emit('device_paired', { token: sessionManager.getPairToken() });
-            // Send history to approved phone
             socket.emit('history', messageHistory);
         }
     }
@@ -372,9 +338,7 @@ io.on('connection', (socket) => {
         socket.emit('history', messageHistory);
     }
 
-    // Listen for new messages from the sender
     socket.on('send_message', (data) => {
-        // Block unapproved phones
         if (socket.role === 'phone' && !sessionManager.approvedPhones.has(socket.id)) {
             return;
         }
@@ -389,22 +353,18 @@ io.on('connection', (socket) => {
             timestamp: new Date().toISOString()
         };
 
-        // Add to history
         messageHistory.push(messageObj);
         if (messageHistory.length > HISTORY_LIMIT) {
             messageHistory.shift();
         }
-
-        // Broadcast to all connected clients (including the sender for acknowledgment)
         io.emit('receive_message', messageObj);
     });
 
     socket.on('clear_messages', () => {
-        messageHistory.length = 0; // Clear history array
-        io.emit('messages_cleared'); // Notify all clients
+        messageHistory.length = 0;
+        io.emit('messages_cleared'); 
     });
 
-    // Admin actions from desktop
     socket.on('admin_action', (data) => {
         if (socket.role !== 'desktop') return;
         
@@ -443,10 +403,8 @@ io.on('connection', (socket) => {
             
             setTimeout(() => {
                 if (process.env.DOCKER === 'true') {
-                    // Under Docker Compose restart policy, exiting cleanly reboots the container
                     process.exit(1);
                 } else {
-                    // Under standard terminal execution, spawn a fresh background server and terminate the current one
                     const { spawn } = require('child_process');
                     const child = spawn(process.argv[0], process.argv.slice(1), {
                         env: process.env,
@@ -460,7 +418,6 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Immediately broadcast the updated lists to all clients
         broadcastUsersUpdate();
     });
 

@@ -40,7 +40,6 @@ function toggleQrOverlay(show) {
     if (overlayTimeout) clearTimeout(overlayTimeout);
 
     if (shouldShow && isCurrentlyHidden) {
-        // Trigger opening zoom & fade animation
         loginOverlay.classList.add('hidden-animate');
         loginOverlay.style.display = 'flex';
         requestAnimationFrame(() => {
@@ -49,7 +48,6 @@ function toggleQrOverlay(show) {
             });
         });
     } else if (!shouldShow && !isCurrentlyHidden) {
-        // Trigger closing zoom & fade animation before hiding display
         loginOverlay.classList.add('hidden-animate');
         overlayTimeout = setTimeout(() => {
             loginOverlay.style.display = 'none';
@@ -69,7 +67,6 @@ if (closeQrBtn) {
     });
 }
 
-// Global keyboard shortcut: Ctrl+Q to toggle QR code pairing overlay, Esc to close
 window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'q') {
         e.preventDefault();
@@ -79,7 +76,6 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Sidebar Routing Logic
 const navBtns = document.querySelectorAll('.sidebar-nav .nav-btn[data-view]');
 const viewContainers = document.querySelectorAll('.view-container');
 
@@ -87,7 +83,6 @@ navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const targetView = btn.getAttribute('data-view');
         
-        // Update active class on buttons
         navBtns.forEach(b => {
             b.classList.remove('active');
             b.style.color = 'var(--text-secondary)';
@@ -95,7 +90,6 @@ navBtns.forEach(btn => {
         btn.classList.add('active');
         btn.style.color = 'var(--text-primary)';
         
-        // Toggle views
         viewContainers.forEach(view => {
             if (view.id === targetView) {
                 view.style.display = 'flex';
@@ -116,7 +110,6 @@ navBtns.forEach(btn => {
     });
 });
 
-// --- Helper Functions ---
 function formatSize(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -125,7 +118,6 @@ function formatSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Fetch QR Code dynamically from server (no authentication needed for localhost)
 function fetchQR() {
     fetch('/api/qr?t=' + Date.now())
         .then(res => res.json())
@@ -170,7 +162,6 @@ socket.on('device_disconnected', () => {
     }
 });
 
-// Handle authentication errors
 socket.on("connect_error", (err) => {
     if (err.message === "invalid_passcode") {
         appToken = '';
@@ -193,10 +184,8 @@ const uploadFileName = document.getElementById('uploadFileName');
 const uploadPercent = document.getElementById('uploadPercent');
 const uploadProgressBar = document.getElementById('uploadProgressBar');
 
-// Focus input on load
 messageInput.focus();
 
-// Quick Paste feature
 pasteBtn.addEventListener('click', async () => {
     try {
         const text = await navigator.clipboard.readText();
@@ -208,7 +197,6 @@ pasteBtn.addEventListener('click', async () => {
     }
 });
 
-// File Attachment feature
 attachBtn.addEventListener('click', () => {
     fileInput.click();
 });
@@ -246,7 +234,7 @@ async function uploadFiles(files) {
                         const data = JSON.parse(xhr.responseText);
                         socket.emit('send_message', { 
                             type: 'file',
-                            text: '', // optional text
+                            text: '', 
                             url: data.url + '?token=' + encodeURIComponent(token),
                             name: data.name,
                             mimeType: data.mimeType
@@ -273,7 +261,6 @@ async function uploadFiles(files) {
         }).catch(err => console.error(err));
     }
     
-    // Hide progress when done
     setTimeout(() => {
         uploadProgressContainer.style.display = 'none';
         uploadProgressBar.style.width = '0%';
@@ -283,10 +270,9 @@ async function uploadFiles(files) {
 fileInput.addEventListener('change', (e) => {
     const filesToUpload = Array.from(e.target.files);
     uploadFiles(filesToUpload);
-    fileInput.value = ''; // reset
+    fileInput.value = '';
 });
 
-// Handle paste for files/images
 window.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
     const files = [];
@@ -303,7 +289,6 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-// Send message feature
 function sendMessage() {
     const text = messageInput.value.trim();
     if (text) {
@@ -315,14 +300,12 @@ function sendMessage() {
 
 sendBtn.addEventListener('click', sendMessage);
 
-// Clear messages feature
 clearBtn.addEventListener('click', () => {
     if (confirm('Are you sure you want to clear all messages everywhere?')) {
         socket.emit('clear_messages');
     }
 });
 
-// Allow Enter to send (Shift+Enter for newline)
 messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -330,7 +313,6 @@ messageInput.addEventListener('keydown', (e) => {
     }
 });
 
-// History handling
 function createMessageElement(message) {
     const div = document.createElement('div');
     div.className = 'message-item';
@@ -404,22 +386,17 @@ function createMessageElement(message) {
     return div;
 }
 
-// Receive history on connect
 socket.on('history', (messages) => {
     messageList.innerHTML = '';
-    // Append in normal order so newest is at the bottom
     messages.forEach(msg => {
         messageList.appendChild(createMessageElement(msg));
     });
-    // Scroll to bottom
     const historySection = document.querySelector('.history-section');
     historySection.scrollTop = historySection.scrollHeight;
 });
 
-// Receive a single message
 socket.on('receive_message', (message) => {
     messageList.appendChild(createMessageElement(message));
-    // Scroll to bottom
     const historySection = document.querySelector('.history-section');
     historySection.scrollTop = historySection.scrollHeight;
 
@@ -434,7 +411,6 @@ socket.on('receive_message', (message) => {
     }
 });
 
-// Clear messages
 socket.on('messages_cleared', () => {
     messageList.innerHTML = '';
     unreadMessagesCount = 0;
@@ -470,7 +446,6 @@ socket.on('users_update', (data) => {
     requestsList.innerHTML = '';
     deviceInfoList.innerHTML = '';
     
-    // Render Active Users
     const users = data.active || [];
     if (users.length === 0) {
         usersList.innerHTML = '<li style="color: var(--text-secondary); font-size: 0.9rem;">No connected devices</li>';
@@ -510,7 +485,6 @@ socket.on('users_update', (data) => {
             
             usersList.appendChild(li);
 
-            // Also populate Device Info List
             const devLi = document.createElement('li');
             devLi.style.background = 'var(--surface-color)';
             devLi.style.padding = '1rem';
@@ -542,7 +516,6 @@ socket.on('users_update', (data) => {
         });
     }
 
-    // Render Blocked IPs
     const blocked = data.blocked || [];
     if (blocked.length === 0) {
         blockedList.innerHTML = '<li style="color: var(--text-secondary); font-size: 0.9rem;">No blocked IPs</li>';
@@ -568,7 +541,6 @@ socket.on('users_update', (data) => {
         });
     }
 
-    // Render Pending Requests
     const pending = data.pending || [];
     if (pending.length === 0) {
         requestsList.innerHTML = '<li style="color: var(--text-secondary); font-size: 0.9rem;">No access requests</li>';
@@ -597,7 +569,6 @@ socket.on('users_update', (data) => {
         });
     }
 
-    // Add listeners for Kick/Block/Unblock/Approve/Deny buttons
     document.querySelectorAll('.kick-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetId = e.currentTarget.getAttribute('data-id');
@@ -636,7 +607,6 @@ socket.on('users_update', (data) => {
     });
 });
 
-// --- Drag and Drop ---
 const dragOverlay = document.getElementById('dragOverlay');
 let dragCounter = 0;
 
@@ -668,7 +638,6 @@ window.addEventListener('drop', (e) => {
     }
 });
 
-// --- System Settings Controls ---
 const restartServerBtn = document.getElementById('restartServerBtn');
 if (restartServerBtn) {
     restartServerBtn.addEventListener('click', () => {
@@ -680,7 +649,6 @@ if (restartServerBtn) {
             
             socket.emit('admin_action', { action: 'restart' });
             
-            // Reload page automatically once server finishes restarting
             setTimeout(() => {
                 window.location.reload();
             }, 2500);

@@ -55,7 +55,6 @@ p.subtitle {
   font-size: 0.9rem;
 }
 
-/* Input Area */
 .input-section {
   display: flex;
   flex-direction: column;
@@ -129,7 +128,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* History Section */
 .history-section {
   display: flex;
   flex-direction: column;
@@ -207,7 +205,6 @@ h2 {
   font-size: 0.8rem;
 }
 
-/* Phone specific styling */
 .phone-container {
   padding: 1.5rem 1rem;
 }
@@ -226,7 +223,6 @@ h2 {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Animations */
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -238,7 +234,6 @@ h2 {
   }
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -253,14 +248,12 @@ h2 {
   background: var(--text-secondary);
 }
 
-/* Utility classes */
 .icon {
   width: 16px;
   height: 16px;
   fill: currentColor;
 }
 
-/* Login Overlay & Modal Animation */
 .login-overlay {
   position: fixed;
   top: 0;
@@ -353,7 +346,6 @@ h2 {
   display: none;
 }
 
-/* Responsive adjustments for mobile screens */
 @media (max-width: 600px) {
   .container {
     padding: 1rem;
@@ -422,7 +414,6 @@ h2 {
     pointer-events: none;
 }
 
-/* Sidebar Styles */
 .sidebar-nav .nav-btn:hover {
     background: rgba(255, 255, 255, 0.05) !important;
 }

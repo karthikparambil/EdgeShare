@@ -2,7 +2,6 @@ const loginOverlay = document.getElementById('loginOverlay');
 const mainApp = document.getElementById('mainApp');
 const loginError = document.getElementById('loginError');
 
-// Extract token from URL
 const urlParams = new URLSearchParams(window.location.search);
 let token = urlParams.get('token') || localStorage.getItem('edgeshare_passcode') || localStorage.getItem('textit_passcode');
 
@@ -20,9 +19,6 @@ socket.on('connect', () => {
     loginOverlay.style.display = 'none';
     loginError.style.display = 'none';
     
-    // We are connected, but we don't know if we are approved yet.
-    // If the server instantly sends 'device_paired', we'll switch to the app.
-    // Otherwise, we show the waiting screen.
     const waitingOverlay = document.getElementById('waitingOverlay');
     if (waitingOverlay) waitingOverlay.style.display = 'flex';
 });
@@ -46,14 +42,12 @@ socket.on('request_denied', () => {
     localStorage.removeItem('textit_passcode');
 });
 
-// Helper to immediately wipe messages and show lockout message screen
 function revokeClientAccess(messageText) {
     if (mainApp) mainApp.style.display = 'none';
     const waitingOverlay = document.getElementById('waitingOverlay');
     if (waitingOverlay) waitingOverlay.style.display = 'none';
     if (loginOverlay) loginOverlay.style.display = 'none';
     
-    // Purge chat history completely from HTML DOM so messages cannot be read
     const msgList = document.getElementById('messageList');
     if (msgList) msgList.innerHTML = '';
     
@@ -80,7 +74,6 @@ socket.on('disconnect', (reason) => {
     }
 });
 
-// Handle authentication errors
 socket.on("connect_error", (err) => {
     if (err.message === "invalid_passcode") {
         loginError.style.display = 'block';
@@ -108,7 +101,6 @@ if (token) {
 }
 const messageList = document.getElementById('messageList');
 
-// History handling
 function createMessageElement(message) {
     const div = document.createElement('div');
     div.className = 'message-item phone-message-item';
@@ -174,7 +166,6 @@ function createMessageElement(message) {
                 }, 2000);
             } catch (err) {
                 console.error('Failed to copy text: ', err);
-                // Fallback for older browsers / webviews that don't support clipboard API well
                 const textArea = document.createElement("textarea");
                 textArea.value = message.text;
                 document.body.appendChild(textArea);
@@ -207,34 +198,27 @@ function createMessageElement(message) {
     return div;
 }
 
-// Receive history on connect
 socket.on('history', (messages) => {
     messageList.innerHTML = '';
-    // Append in chronological order so the newest message is at the bottom
     messages.forEach(msg => {
         messageList.appendChild(createMessageElement(msg));
     });
-    // Automatically scroll to view the latest messages at the bottom
     const historySection = document.querySelector('.history-section');
     if (historySection) historySection.scrollTop = historySection.scrollHeight;
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 });
 
-// Receive a single message
 socket.on('receive_message', (message) => {
     messageList.appendChild(createMessageElement(message));
-    // Automatically scroll to view the latest message at the bottom
     const historySection = document.querySelector('.history-section');
     if (historySection) historySection.scrollTop = historySection.scrollHeight;
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 });
 
-// Clear messages
 socket.on('messages_cleared', () => {
     messageList.innerHTML = '';
 });
 
-// --- NEW: Sending Capabilities ---
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const attachBtn = document.getElementById('attachBtn');
@@ -244,7 +228,6 @@ const uploadFileName = document.getElementById('uploadFileName');
 const uploadPercent = document.getElementById('uploadPercent');
 const uploadProgressBar = document.getElementById('uploadProgressBar');
 
-// File Attachment feature
 if (attachBtn && fileInput) {
     attachBtn.addEventListener('click', () => {
         fileInput.click();
@@ -253,13 +236,12 @@ if (attachBtn && fileInput) {
     fileInput.addEventListener('change', (e) => {
         const filesToUpload = Array.from(e.target.files);
         uploadFiles(filesToUpload);
-        fileInput.value = ''; // reset
+        fileInput.value = ''; 
     });
 }
 
 async function uploadFiles(files) {
     if (!files || files.length === 0) return;
-    // For receiver, token is just token variable
     const currentToken = token || socket.auth?.token;
 
     uploadProgressContainer.style.display = 'block';
@@ -275,7 +257,6 @@ async function uploadFiles(files) {
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/upload');
-            // Send token in headers so backend auth passes
             xhr.setRequestHeader('Authorization', currentToken);
 
             xhr.upload.onprogress = (event) => {
@@ -319,14 +300,12 @@ async function uploadFiles(files) {
         }).catch(err => console.error(err));
     }
 
-    // Hide progress when done
     setTimeout(() => {
         uploadProgressContainer.style.display = 'none';
         uploadProgressBar.style.width = '0%';
     }, 1000);
 }
 
-// Send message feature
 function sendMessage() {
     if (!messageInput) return;
     const text = messageInput.value.trim();
@@ -350,7 +329,6 @@ if (messageInput) {
     });
 }
 
-// --- Drag and Drop ---
 const dragOverlay = document.getElementById('dragOverlay');
 let dragCounter = 0;
 
