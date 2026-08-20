@@ -8,7 +8,7 @@ class SessionManager {
         this.isPaired = false;
         this.connectedUsers = {};
         this.blockedIps = new Set();
-        this.pendingRequests = new Map(); // socketId -> { id, ip, timestamp }
+        this.pendingRequests = new Map(); 
         this.approvedIps = new Set();
         this.approvedPhones = new Set();
     }
@@ -29,16 +29,14 @@ class SessionManager {
         return Boolean(this.phoneSocketId) || Object.values(this.connectedUsers).some(u => u.role === 'phone');
     }
 
-    // Devices that are not approved need permission
     canPhoneConnect(socketId) {
-        return true; // We now allow them to connect but place them in pending state
+        return true;
     }
 
     blockIp(ip) {
         this.blockedIps.add(ip);
-        this.approvedIps.delete(ip); // Revoke approval if blocked
+        this.approvedIps.delete(ip); 
         
-        // Remove from pending
         for (const [id, req] of this.pendingRequests.entries()) {
             if (req.ip === ip) {
                 this.pendingRequests.delete(id);
@@ -69,7 +67,6 @@ class SessionManager {
             }
         }
         
-        // Only consider the user 'active' if desktop, or if phone is approved
         if (role === 'desktop' || this.approvedIps.has(ip) || this.approvedPhones.has(socketId)) {
             this.connectedUsers[socketId] = {
                 id: socketId,
@@ -97,7 +94,6 @@ class SessionManager {
             this.approvedPhones.add(socketId);
             this.pendingRequests.delete(socketId);
             
-            // Move to active users
             this.connectedUsers[socketId] = {
                 id: socketId,
                 role: 'phone',

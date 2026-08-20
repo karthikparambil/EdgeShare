@@ -8,7 +8,6 @@ const puppeteer = require('puppeteer');
   
   await page.goto('http://localhost:9999', { waitUntil: 'networkidle0' });
   
-  // Click on users tab
   await page.evaluate(() => {
     const btns = document.querySelectorAll('.sidebar-nav .nav-btn[data-view="usersView"]');
     if (btns.length) btns[0].click();

@@ -1,5 +1,3 @@
-# Ignore all uploaded temporary files in this directory
 *
-# But preserve this .gitignore file so the directory structure remains intact in version control
 !.gitignore
 !.gitkeep
