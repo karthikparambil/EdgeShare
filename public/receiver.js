@@ -245,6 +245,7 @@ async function uploadFiles(files) {
     const currentToken = token || socket.auth?.token;
 
     uploadProgressContainer.style.display = 'block';
+    socket.emit('uploading');
 
     for (const file of files) {
         uploadFileName.textContent = `Uploading ${file.name}...`;
@@ -259,11 +260,36 @@ async function uploadFiles(files) {
             xhr.open('POST', '/upload');
             xhr.setRequestHeader('Authorization', currentToken);
 
+            let lastLoaded = 0;
+            let lastTime = Date.now();
+
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) {
                     const percentComplete = Math.round((event.loaded / event.total) * 100);
-                    uploadPercent.textContent = `${percentComplete}%`;
                     uploadProgressBar.style.width = `${percentComplete}%`;
+                    
+                    const now = Date.now();
+                    const timeDiff = (now - lastTime) / 1000;
+                    
+                    if (timeDiff >= 0.5 || event.loaded === event.total) {
+                        const bytesDiff = event.loaded - lastLoaded;
+                        const speedBps = timeDiff > 0 ? bytesDiff / timeDiff : 0;
+                        
+                        let speedText = '';
+                        if (speedBps > 1024 * 1024) {
+                            speedText = (speedBps / (1024 * 1024)).toFixed(1) + ' MB/s';
+                        } else if (speedBps > 1024) {
+                            speedText = (speedBps / 1024).toFixed(1) + ' KB/s';
+                        } else {
+                            speedText = Math.round(speedBps) + ' B/s';
+                        }
+                        
+                        uploadPercent.textContent = `${percentComplete}% - ${speedText}`;
+                        lastLoaded = event.loaded;
+                        lastTime = now;
+                    } else if (!uploadPercent.textContent.includes('-')) {
+                        uploadPercent.textContent = `${percentComplete}%`;
+                    }
                 }
             };
 
@@ -303,6 +329,7 @@ async function uploadFiles(files) {
     setTimeout(() => {
         uploadProgressContainer.style.display = 'none';
         uploadProgressBar.style.width = '0%';
+        socket.emit('stop_uploading');
     }, 1000);
 }
 
@@ -311,6 +338,7 @@ function sendMessage() {
     const text = messageInput.value.trim();
     if (text) {
         socket.emit('send_message', { type: 'text', text });
+        socket.emit('stop_typing');
         messageInput.value = '';
         messageInput.focus();
     }
@@ -359,3 +387,58 @@ window.addEventListener('drop', (e) => {
         uploadFiles(e.dataTransfer.files);
     }
 });
+
+// Activity Indicator Logic
+let activityIndicator = document.getElementById('activityIndicator');
+if (!activityIndicator) {
+    activityIndicator = document.createElement('div');
+    activityIndicator.id = 'activityIndicator';
+    activityIndicator.className = 'activity-indicator';
+    const historySection = document.querySelector('.history-section');
+    if (historySection) {
+        historySection.appendChild(activityIndicator);
+    }
+}
+
+function showActivity(text) {
+    if(!activityIndicator) return;
+    activityIndicator.innerHTML = `<span>${text}</span><div class="typing-dots"><span></span><span></span><span></span></div>`;
+    activityIndicator.classList.add('active');
+    const historySection = document.querySelector('.history-section');
+    if (historySection) historySection.scrollTop = historySection.scrollHeight;
+}
+
+function hideActivity() {
+    if(!activityIndicator) return;
+    activityIndicator.classList.remove('active');
+}
+
+socket.on('user_typing', (data) => {
+    const role = data.role === 'phone' ? 'Phone' : 'Desktop';
+    showActivity(`${role} is typing`);
+});
+
+socket.on('user_stop_typing', () => {
+    hideActivity();
+});
+
+socket.on('user_uploading', (data) => {
+    const role = data.role === 'phone' ? 'Phone' : 'Desktop';
+    showActivity(`${role} is sharing a file`);
+});
+
+socket.on('user_stop_uploading', () => {
+    hideActivity();
+});
+
+let typingTimeout = null;
+if (typeof messageInput !== 'undefined' && messageInput) {
+    messageInput.addEventListener('input', () => {
+        socket.emit('typing');
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            socket.emit('stop_typing');
+        }, 1500);
+    });
+}
+

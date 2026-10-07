@@ -360,6 +360,23 @@ io.on('connection', (socket) => {
         io.emit('receive_message', messageObj);
     });
 
+    socket.on('typing', () => {
+        socket.broadcast.emit('user_typing', { role: socket.role });
+    });
+    
+    socket.on('stop_typing', () => {
+        socket.broadcast.emit('user_stop_typing', { role: socket.role });
+    });
+
+    socket.on('uploading', () => {
+        socket.broadcast.emit('user_uploading', { role: socket.role });
+    });
+
+    socket.on('stop_uploading', () => {
+        socket.broadcast.emit('user_stop_uploading', { role: socket.role });
+    });
+
+
     socket.on('clear_messages', () => {
         messageHistory.length = 0;
         io.emit('messages_cleared'); 
