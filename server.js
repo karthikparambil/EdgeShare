@@ -40,14 +40,21 @@ const storage = multer.diskStorage({
         cb(null, uniqueSuffix + '-' + safeName);
     }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 * 1024 } // 50GB limit
+});
 
 const app = express();
 app.use(express.json({limit: '50gb'}));
 app.use(express.urlencoded({limit: '50gb', extended: true}));
 
 const server = http.createServer(app);
+server.setTimeout(0);
+server.keepAliveTimeout = 0;
+
 const io = new Server(server, {
+    maxHttpBufferSize: 1e8, // 100MB for Socket.IO messages
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
@@ -368,8 +375,8 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('user_stop_typing', { role: socket.role });
     });
 
-    socket.on('uploading', () => {
-        socket.broadcast.emit('user_uploading', { role: socket.role });
+    socket.on('uploading', (data) => {
+        socket.broadcast.emit('user_uploading', { role: socket.role, count: data?.count || 1 });
     });
 
     socket.on('stop_uploading', () => {
@@ -452,6 +459,10 @@ io.on('connection', (socket) => {
         console.log('User disconnected:', socket.id);
         sessionManager.unregisterSocket(socket.id);
         broadcastUsersUpdate();
+        
+        socket.broadcast.emit('user_stop_typing', { role: socket.role });
+        socket.broadcast.emit('user_stop_uploading', { role: socket.role });
+
         if (socket.role === 'phone') {
             io.emit('device_disconnected');
         }

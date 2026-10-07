@@ -64,6 +64,7 @@ p.subtitle {
   border-radius: 12px;
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  position: relative;
 }
 
 textarea {
@@ -506,6 +507,10 @@ h2 {
 @keyframes typingBounce {
     0%, 80%, 100% { transform: scale(0); }
     40% { transform: scale(1); }
+}
+
+#queueListContainer::-webkit-scrollbar {
+  display: none;
 }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }

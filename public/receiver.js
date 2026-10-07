@@ -240,32 +240,159 @@ if (attachBtn && fileInput) {
     });
 }
 
-async function uploadFiles(files) {
-    if (!files || files.length === 0) return;
+let currentUploadXhr = null;
+let isUploadCancelled = false;
+
+const cancelUploadBtn = document.getElementById('cancelUploadBtn');
+if (cancelUploadBtn) {
+    cancelUploadBtn.addEventListener('click', () => {
+        if (typeof window.cancelCurrentUpload === 'function') {
+            window.cancelCurrentUpload();
+        } else {
+            isUploadCancelled = true;
+            if (currentUploadXhr) {
+                currentUploadXhr.abort();
+            }
+            uploadProgressContainer.style.display = 'none';
+            socket.emit('stop_uploading');
+        }
+    });
+}
+
+let uploadQueue = [];
+let batchFiles = [];
+let isUploading = false;
+let currentUploadIndex = 0;
+let totalUploadCount = 0;
+let totalBytesToUpload = 0;
+let bytesUploadedSoFar = 0;
+
+window.cancelCurrentUpload = function() {
+    const batchFileIndex = batchFiles.findIndex(f => f.status === 'uploading');
+    if (batchFileIndex === -1) {
+        // If nothing is uploading, we just cancel everything
+        isUploadCancelled = true;
+        uploadProgressContainer.style.display = 'none';
+        socket.emit('stop_uploading');
+        resetQueueState();
+        return;
+    }
+
+    const batchFile = batchFiles[batchFileIndex];
+    if (currentUploadXhr) {
+        currentUploadXhr.abort();
+    }
+    totalBytesToUpload -= batchFile.file.size;
+    batchFiles.splice(batchFileIndex, 1);
+    renderQueueList();
+};
+
+function renderQueueList() {
+    const container = document.getElementById('queueListContainer');
+    if (!container) return;
+    if (batchFiles.length <= 1) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+    container.style.display = 'flex';
+    container.innerHTML = '';
+    
+    batchFiles.forEach(f => {
+        const chip = document.createElement('div');
+        let bg = 'rgba(255,255,255,0.05)';
+        let border = 'var(--border-color)';
+        let opacity = '1';
+        let iconTxt = '🕒';
+        
+        if (f.status === 'done') {
+            iconTxt = '✅';
+            opacity = '0.5';
+            border = '#10b981';
+        } else if (f.status === 'uploading') {
+            iconTxt = '⏳';
+            border = '#3b82f6';
+            bg = 'rgba(59, 130, 246, 0.1)';
+            chip.id = 'current-uploading-chip';
+        }
+        
+        chip.style.cssText = `background: ${bg}; border-radius: 16px; padding: 4px 10px; font-size: 0.75rem; white-space: nowrap; border: 1px solid ${border}; display: flex; align-items: center; gap: 6px; flex-shrink: 0; opacity: ${opacity}; transition: all 0.3s ease;`;
+        
+        const name = document.createElement('span');
+        name.textContent = f.file.name;
+        name.style.maxWidth = '100px';
+        name.style.overflow = 'hidden';
+        name.style.textOverflow = 'ellipsis';
+        
+        const icon = document.createElement('span');
+        icon.textContent = iconTxt;
+        
+        chip.appendChild(name);
+        chip.appendChild(icon);
+        container.appendChild(chip);
+    });
+    
+    setTimeout(() => {
+        const uploadingChip = document.getElementById('current-uploading-chip');
+        if (uploadingChip) {
+            uploadingChip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }, 50);
+}
+
+async function processQueue() {
+    if (isUploading) return;
+    if (uploadQueue.length === 0) {
+        uploadProgressContainer.style.display = 'none';
+        uploadProgressBar.style.width = '0%';
+        socket.emit('stop_uploading');
+        resetQueueState();
+        return;
+    }
+
+    isUploading = true;
+    uploadProgressContainer.style.display = 'block';
     const currentToken = token || socket.auth?.token;
 
-    uploadProgressContainer.style.display = 'block';
-    socket.emit('uploading');
+    if (totalUploadCount === 0) {
+        totalUploadCount = uploadQueue.length;
+    }
+    
+    socket.emit('uploading', { count: totalUploadCount - currentUploadIndex }); 
 
-    for (const file of files) {
-        uploadFileName.textContent = `Uploading ${file.name}...`;
-        uploadPercent.textContent = '0%';
-        uploadProgressBar.style.width = '0%';
+    while (uploadQueue.length > 0) {
+        if (isUploadCancelled) {
+            uploadQueue = [];
+            break;
+        }
 
+        const fileObj = uploadQueue.shift();
+        const file = fileObj.file;
+        fileObj.status = 'uploading';
+        currentUploadIndex++;
+        renderQueueList();
+        
+        if (totalUploadCount > 1) {
+            uploadFileName.textContent = `Uploading (${currentUploadIndex}/${totalUploadCount}): ${file.name}`;
+        } else {
+            uploadFileName.textContent = `Uploading: ${file.name}`;
+        }
+        
         await new Promise((resolve, reject) => {
             const formData = new FormData();
             formData.append('file', file);
-
+            
             const xhr = new XMLHttpRequest();
+            currentUploadXhr = xhr;
             xhr.open('POST', '/upload');
             xhr.setRequestHeader('Authorization', currentToken);
-
+            
             let lastLoaded = 0;
             let lastTime = Date.now();
 
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) {
-                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    const percentComplete = Math.round(((bytesUploadedSoFar + event.loaded) / totalBytesToUpload) * 100);
                     uploadProgressBar.style.width = `${percentComplete}%`;
                     
                     const now = Date.now();
@@ -292,8 +419,11 @@ async function uploadFiles(files) {
                     }
                 }
             };
-
+            
             xhr.onload = () => {
+                bytesUploadedSoFar += file.size;
+                fileObj.status = 'done';
+                renderQueueList();
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                         const data = JSON.parse(xhr.responseText);
@@ -315,22 +445,66 @@ async function uploadFiles(files) {
                     reject(new Error(xhr.statusText));
                 }
             };
-
+            
             xhr.onerror = () => {
-                console.error('Error uploading file');
-                alert('Error uploading file. Check connection.');
+                if (!isUploadCancelled) {
+                    console.error('Error uploading file');
+                    alert('Error uploading file. Check connection.');
+                }
                 reject(new Error('Network error'));
             };
-
+            
+            xhr.onabort = () => {
+                resolve();
+            };
+            
             xhr.send(formData);
-        }).catch(err => console.error(err));
+        }).catch(err => {
+            if (!isUploadCancelled) console.error(err);
+        });
     }
-
-    setTimeout(() => {
+    
+    currentUploadXhr = null;
+    isUploading = false;
+    
+    if (isUploadCancelled) {
         uploadProgressContainer.style.display = 'none';
         uploadProgressBar.style.width = '0%';
         socket.emit('stop_uploading');
-    }, 1000);
+        resetQueueState();
+    } else {
+        setTimeout(() => {
+            if (uploadQueue.length === 0 && !isUploading) {
+                uploadProgressContainer.style.display = 'none';
+                uploadProgressBar.style.width = '0%';
+                socket.emit('stop_uploading');
+                resetQueueState();
+            }
+        }, 1000);
+    }
+}
+
+function resetQueueState() {
+    currentUploadIndex = 0;
+    totalUploadCount = 0;
+    totalBytesToUpload = 0;
+    bytesUploadedSoFar = 0;
+    batchFiles = [];
+    renderQueueList();
+}
+
+function uploadFiles(files) {
+    if (!files || files.length === 0) return;
+    if (isUploadCancelled) isUploadCancelled = false;
+    for (let i = 0; i < files.length; i++) {
+        const fileObj = { file: files[i], status: 'queued', id: Date.now() + i };
+        uploadQueue.push(fileObj);
+        batchFiles.push(fileObj);
+        totalBytesToUpload += files[i].size;
+        totalUploadCount++;
+    }
+    renderQueueList();
+    processQueue();
 }
 
 function sendMessage() {
@@ -424,7 +598,11 @@ socket.on('user_stop_typing', () => {
 
 socket.on('user_uploading', (data) => {
     const role = data.role === 'phone' ? 'Phone' : 'Desktop';
-    showActivity(`${role} is sharing a file`);
+    if (data.count && data.count > 1) {
+        showActivity(`${role} is sharing ${data.count} files`);
+    } else {
+        showActivity(`${role} is sharing a file`);
+    }
 });
 
 socket.on('user_stop_uploading', () => {
