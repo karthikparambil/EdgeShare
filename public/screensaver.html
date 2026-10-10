@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Edgeshare Screensaver</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            cursor: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #clock {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 10vw;
+            font-weight: 500;
+            opacity: 0.6;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            white-space: nowrap;
+            will-change: transform;
+        }
+        #exitBtn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+        body:hover #exitBtn, body:active #exitBtn {
+            opacity: 1;
+        }
+        body:hover {
+            cursor: default;
+        }
+        @media (max-width: 600px) {
+            #clock {
+                font-size: 15vw;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="clock">00:00</div>
+    <button id="exitBtn">Exit Screensaver</button>
+
+    <script src="NoSleep.min.js"></script>
+    <script>
+        let noSleep = null;
+        try {
+            if (typeof NoSleep !== 'undefined') {
+                noSleep = new NoSleep();
+            }
+        } catch (e) {}
+        
+        let isWakeLockEnabled = false;
+        let nativeWakeLock = null;
+
+        async function requestWakeLock() {
+            if (!isWakeLockEnabled) {
+                if (noSleep) {
+                    try {
+                        noSleep.enable();
+                        isWakeLockEnabled = true;
+                        console.log('NoSleep Wake Lock acquired');
+                    } catch (err) {
+                        console.error('Failed to enable NoSleep', err);
+                    }
+                } else if ('wakeLock' in navigator) {
+                    try {
+                        nativeWakeLock = await navigator.wakeLock.request('screen');
+                        isWakeLockEnabled = true;
+                    } catch (e) {
+                        console.log('Native wake lock failed', e);
+                    }
+                }
+            }
+        }
+
+        function goFullScreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(err => console.log(err));
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        }
+
+        function exitFullScreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().catch(err => console.log(err));
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+
+        document.getElementById('exitBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isWakeLockEnabled) {
+                if (noSleep) noSleep.disable();
+                if (nativeWakeLock) {
+                    nativeWakeLock.release().catch(()=>{});
+                    nativeWakeLock = null;
+                }
+                isWakeLockEnabled = false;
+                console.log('Wake Lock released');
+            }
+            exitFullScreen();
+            
+            // Try to notify parent if in iframe
+            try {
+                window.parent.postMessage('close_screensaver', '*');
+            } catch (err) {}
+            
+            // If opened directly
+            if (window.parent === window) {
+                window.close();
+            }
+        });
+
+        let currentText = "Sharing...";
+        document.getElementById('clock').innerText = currentText;
+
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'progress') {
+                const p = Math.round(e.data.progress);
+                currentText = p + '%';
+                document.getElementById('clock').innerText = currentText;
+            } else if (e.data && e.data.type === 'remote_uploading') {
+                currentText = "Receiving...";
+                document.getElementById('clock').innerText = currentText;
+            }
+        });
+
+        // Bounce animation like DVD screensaver
+        const clock = document.getElementById('clock');
+        let x = Math.random() * (window.innerWidth - 200);
+        let y = Math.random() * (window.innerHeight - 100);
+        let dx = 2.5; 
+        let dy = 2.5; 
+        
+        // Randomize initial direction
+        if (Math.random() > 0.5) dx = -dx;
+        if (Math.random() > 0.5) dy = -dy;
+
+        function animate() {
+            const rect = clock.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width;
+            const maxY = window.innerHeight - rect.height;
+
+            x += dx;
+            y += dy;
+
+            if (x <= 0) {
+                x = 0;
+                dx = Math.abs(dx);
+            } else if (x >= maxX) {
+                x = maxX;
+                dx = -Math.abs(dx);
+            }
+
+            if (y <= 0) {
+                y = 0;
+                dy = Math.abs(dy);
+            } else if (y >= maxY) {
+                y = maxY;
+                dy = -Math.abs(dy);
+            }
+
+            clock.style.transform = `translate(${x}px, ${y}px)`;
+            requestAnimationFrame(animate);
+        }
+        
+        // Start animation after a short delay to ensure font/size is loaded
+        setTimeout(() => requestAnimationFrame(animate), 100);
+
+        // Initialize on first click anywhere
+        document.body.addEventListener('click', function init() {
+            goFullScreen();
+            requestWakeLock();
+            document.body.removeEventListener('click', init);
+        });
+
+        // Auto request wake lock on load
+        requestWakeLock();
+
+        // Re-request wake lock on visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (isWakeLockEnabled && document.visibilityState === 'visible') {
+                if (noSleep) {
+                    noSleep.disable();
+                    noSleep.enable();
+                } else {
+                    isWakeLockEnabled = false;
+                    requestWakeLock();
+                }
+            }
+        });
+        
+        // Notify parent that screensaver is ready to be clicked for full screen
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                goFullScreen();
+                requestWakeLock();
+            }, 100);
+        });
+    </script>
+</body>
+</html>

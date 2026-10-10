@@ -167,6 +167,9 @@ h2 {
   word-break: break-word;
   white-space: pre-wrap;
   font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .message-image {
@@ -515,4 +518,54 @@ h2 {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* Privacy Mode / Sensitive Media */
+.privacy-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.privacy-wrapper > *:not(.privacy-placeholder) {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.privacy-placeholder {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  gap: 0.5rem;
+  z-index: 2;
+  transition: opacity 0.2s ease;
+  min-height: 60px;
+}
+
+.privacy-placeholder svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+.privacy-wrapper:hover > *:not(.privacy-placeholder),
+.privacy-wrapper.revealed > *:not(.privacy-placeholder) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.privacy-wrapper:hover .privacy-placeholder,
+.privacy-wrapper.revealed .privacy-placeholder {
+  opacity: 0;
+  pointer-events: none;
 }

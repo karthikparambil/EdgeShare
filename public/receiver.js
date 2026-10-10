@@ -104,17 +104,33 @@ const messageList = document.getElementById('messageList');
 function createMessageElement(message) {
     const div = document.createElement('div');
     div.className = 'message-item phone-message-item';
+    div.setAttribute('data-id', message.id);
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     
     if (message.type === 'file') {
         if (message.mimeType && message.mimeType.startsWith('image/')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'privacy-wrapper';
+            wrapper.addEventListener('click', (e) => {
+                if (!wrapper.classList.contains('revealed')) {
+                    e.preventDefault();
+                    wrapper.classList.add('revealed');
+                }
+            });
+
+            const placeholder = document.createElement('div');
+            placeholder.className = 'privacy-placeholder';
+            placeholder.innerHTML = `<svg viewBox="0 0 24 24"><path d="M11.83 9L15 12.16V12a3 3 0 0 0-3-3h-.17zm-4.3.8l1.55 1.55c-.05.21-.08.42-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7z"/></svg><span>Hidden</span>`;
+            wrapper.appendChild(placeholder);
+
             const img = document.createElement('img');
             img.src = message.url;
             img.className = 'message-image';
             img.alt = message.name;
-            contentDiv.appendChild(img);
+            wrapper.appendChild(img);
+            contentDiv.appendChild(wrapper);
         } else {
             const fileLink = document.createElement('a');
             fileLink.href = message.url;
@@ -219,6 +235,11 @@ socket.on('messages_cleared', () => {
     messageList.innerHTML = '';
 });
 
+socket.on('message_deleted', (messageId) => {
+    const el = document.querySelector(`.message-item[data-id="${messageId}"]`);
+    if (el) el.remove();
+});
+
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const attachBtn = document.getElementById('attachBtn');
@@ -253,7 +274,7 @@ if (cancelUploadBtn) {
             if (currentUploadXhr) {
                 currentUploadXhr.abort();
             }
-            uploadProgressContainer.style.display = 'none';
+            uploadProgressContainer.style.display = 'none'; if(typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
             socket.emit('stop_uploading');
         }
     });
@@ -272,7 +293,7 @@ window.cancelCurrentUpload = function() {
     if (batchFileIndex === -1) {
         // If nothing is uploading, we just cancel everything
         isUploadCancelled = true;
-        uploadProgressContainer.style.display = 'none';
+        uploadProgressContainer.style.display = 'none'; if(typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
         socket.emit('stop_uploading');
         resetQueueState();
         return;
@@ -343,7 +364,7 @@ function renderQueueList() {
 async function processQueue() {
     if (isUploading) return;
     if (uploadQueue.length === 0) {
-        uploadProgressContainer.style.display = 'none';
+        uploadProgressContainer.style.display = 'none'; if(typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
         uploadProgressBar.style.width = '0%';
         socket.emit('stop_uploading');
         resetQueueState();
@@ -351,7 +372,7 @@ async function processQueue() {
     }
 
     isUploading = true;
-    uploadProgressContainer.style.display = 'block';
+    uploadProgressContainer.style.display = 'block'; if(typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
     const currentToken = token || socket.auth?.token;
 
     if (totalUploadCount === 0) {
@@ -394,6 +415,10 @@ async function processQueue() {
                 if (event.lengthComputable) {
                     const percentComplete = Math.round(((bytesUploadedSoFar + event.loaded) / totalBytesToUpload) * 100);
                     uploadProgressBar.style.width = `${percentComplete}%`;
+                    const ssFrame = document.getElementById('ssFrame');
+                    if (ssFrame && ssFrame.contentWindow) {
+                        ssFrame.contentWindow.postMessage({ type: 'progress', progress: percentComplete }, '*');
+                    }
                     
                     const now = Date.now();
                     const timeDiff = (now - lastTime) / 1000;
@@ -468,14 +493,14 @@ async function processQueue() {
     isUploading = false;
     
     if (isUploadCancelled) {
-        uploadProgressContainer.style.display = 'none';
+        uploadProgressContainer.style.display = 'none'; if(typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
         uploadProgressBar.style.width = '0%';
         socket.emit('stop_uploading');
         resetQueueState();
     } else {
         setTimeout(() => {
             if (uploadQueue.length === 0 && !isUploading) {
-                uploadProgressContainer.style.display = 'none';
+                uploadProgressContainer.style.display = 'none'; if(typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
                 uploadProgressBar.style.width = '0%';
                 socket.emit('stop_uploading');
                 resetQueueState();
@@ -574,39 +599,83 @@ if (!activityIndicator) {
     }
 }
 
-function showActivity(text) {
+const activeUsers = new Map();
+
+function updateActivityIndicator() {
     if(!activityIndicator) return;
-    activityIndicator.innerHTML = `<span>${text}</span><div class="typing-dots"><span></span><span></span><span></span></div>`;
+    
+    if (activeUsers.size === 0) {
+        activityIndicator.classList.remove('active');
+        if (typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
+        return;
+    }
+    
+    let textParts = [];
+    for (const [id, data] of activeUsers.entries()) {
+        const role = data.role === 'phone' ? 'Phone' : 'Desktop';
+        let devName = role;
+        if (data.deviceInfo && data.deviceInfo !== 'Unknown Device') {
+            const parts = data.deviceInfo.split('|');
+            if (parts.length === 3) {
+                const b = parts[1];
+                const o = parts[2];
+                if (b !== 'Unknown Browser' && o !== 'Unknown OS') {
+                    devName = `${b} on ${o}`;
+                } else if (o !== 'Unknown OS') {
+                    devName = o;
+                } else if (b !== 'Unknown Browser') {
+                    devName = b;
+                } else {
+                    devName = parts[0] === 'mobile' ? 'Mobile' : 'Desktop';
+                }
+            }
+        }
+        
+        if (data.type === 'uploading') {
+            textParts.push(`${devName} is sharing ${data.count > 1 ? data.count + ' files' : 'a file'}`);
+        } else if (data.type === 'typing') {
+            textParts.push(`${devName} is typing`);
+        }
+    }
+    
+    activityIndicator.innerHTML = `<span>${textParts.join(', ')}</span><div class="typing-dots"><span></span><span></span><span></span></div>`;
     activityIndicator.classList.add('active');
     const historySection = document.querySelector('.history-section');
     if (historySection) historySection.scrollTop = historySection.scrollHeight;
-}
-
-function hideActivity() {
-    if(!activityIndicator) return;
-    activityIndicator.classList.remove('active');
+    if (typeof toggleScreensaverBtn === 'function') toggleScreensaverBtn();
+    const ssFrame = document.getElementById('ssFrame');
+    if (ssFrame && ssFrame.contentWindow) {
+        ssFrame.contentWindow.postMessage({ type: 'remote_uploading' }, '*');
+    }
 }
 
 socket.on('user_typing', (data) => {
-    const role = data.role === 'phone' ? 'Phone' : 'Desktop';
-    showActivity(`${role} is typing`);
-});
-
-socket.on('user_stop_typing', () => {
-    hideActivity();
-});
-
-socket.on('user_uploading', (data) => {
-    const role = data.role === 'phone' ? 'Phone' : 'Desktop';
-    if (data.count && data.count > 1) {
-        showActivity(`${role} is sharing ${data.count} files`);
-    } else {
-        showActivity(`${role} is sharing a file`);
+    const existing = activeUsers.get(data.id);
+    if (!existing || existing.type !== 'uploading') {
+        activeUsers.set(data.id, { type: 'typing', role: data.role, deviceInfo: data.deviceInfo });
+        updateActivityIndicator();
     }
 });
 
-socket.on('user_stop_uploading', () => {
-    hideActivity();
+socket.on('user_stop_typing', (data) => {
+    const existing = activeUsers.get(data.id);
+    if (existing && existing.type === 'typing') {
+        activeUsers.delete(data.id);
+        updateActivityIndicator();
+    }
+});
+
+socket.on('user_uploading', (data) => {
+    activeUsers.set(data.id, { type: 'uploading', role: data.role, deviceInfo: data.deviceInfo, count: data.count });
+    updateActivityIndicator();
+});
+
+socket.on('user_stop_uploading', (data) => {
+    const existing = activeUsers.get(data.id);
+    if (existing && existing.type === 'uploading') {
+        activeUsers.delete(data.id);
+        updateActivityIndicator();
+    }
 });
 
 let typingTimeout = null;
@@ -620,3 +689,56 @@ if (typeof messageInput !== 'undefined' && messageInput) {
     });
 }
 
+const screensaverBtn = document.getElementById('screensaverBtn');
+if (screensaverBtn) {
+    screensaverBtn.addEventListener('click', () => {
+        let ssFrame = document.getElementById('ssFrame');
+        if (!ssFrame) {
+            ssFrame = document.createElement('iframe');
+            ssFrame.id = 'ssFrame';
+            ssFrame.src = 'screensaver.html';
+            ssFrame.allow = 'fullscreen; screen-wake-lock';
+            ssFrame.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; border:none; z-index:999999; background:#000;';
+            document.body.appendChild(ssFrame);
+            
+            try {
+                if (ssFrame.requestFullscreen) {
+                    ssFrame.requestFullscreen().catch(e => console.log(e));
+                } else if (ssFrame.webkitRequestFullscreen) {
+                    ssFrame.webkitRequestFullscreen();
+                }
+            } catch(e) {}
+            
+            const closeHandler = (e) => {
+                if (e.data === 'close_screensaver') {
+                    if (ssFrame && ssFrame.parentNode) {
+                        ssFrame.parentNode.removeChild(ssFrame);
+                    }
+                    window.removeEventListener('message', closeHandler);
+                }
+            };
+            window.addEventListener('message', closeHandler);
+        }
+    });
+}
+
+function toggleScreensaverBtn() {
+    const btn = document.getElementById('screensaverBtn');
+    if (!btn) return;
+    
+    let isRemoteUploading = false;
+    if (typeof activeUsers !== 'undefined') {
+        for (const data of activeUsers.values()) {
+            if (data.type === 'uploading') {
+                isRemoteUploading = true;
+                break;
+            }
+        }
+    }
+    
+    if (isUploading || isRemoteUploading) {
+        btn.style.display = 'flex';
+    } else {
+        btn.style.display = 'none';
+    }
+}

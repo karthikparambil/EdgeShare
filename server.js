@@ -52,6 +52,8 @@ app.use(express.urlencoded({limit: '50gb', extended: true}));
 const server = http.createServer(app);
 server.setTimeout(0);
 server.keepAliveTimeout = 0;
+server.requestTimeout = 0;
+server.headersTimeout = 0;
 
 const io = new Server(server, {
     maxHttpBufferSize: 1e8, // 100MB for Socket.IO messages
@@ -368,23 +370,52 @@ io.on('connection', (socket) => {
     });
 
     socket.on('typing', () => {
-        socket.broadcast.emit('user_typing', { role: socket.role });
+        const user = sessionManager.connectedUsers[socket.id];
+        const deviceInfo = user ? user.userAgent : 'Unknown Device';
+        socket.broadcast.emit('user_typing', { role: socket.role, id: socket.id, deviceInfo });
     });
     
     socket.on('stop_typing', () => {
-        socket.broadcast.emit('user_stop_typing', { role: socket.role });
+        socket.broadcast.emit('user_stop_typing', { role: socket.role, id: socket.id });
     });
 
     socket.on('uploading', (data) => {
-        socket.broadcast.emit('user_uploading', { role: socket.role, count: data?.count || 1 });
+        const user = sessionManager.connectedUsers[socket.id];
+        const deviceInfo = user ? user.userAgent : 'Unknown Device';
+        socket.broadcast.emit('user_uploading', { role: socket.role, id: socket.id, deviceInfo, count: data?.count || 1 });
     });
 
     socket.on('stop_uploading', () => {
-        socket.broadcast.emit('user_stop_uploading', { role: socket.role });
+        socket.broadcast.emit('user_stop_uploading', { role: socket.role, id: socket.id });
     });
 
 
+    socket.on('delete_message', (messageId) => {
+        if (socket.role !== 'desktop') return;
+        
+        const msgIndex = messageHistory.findIndex(m => m.id === messageId);
+        if (msgIndex !== -1) {
+            const msg = messageHistory[msgIndex];
+            if (msg.type === 'file' && msg.url) {
+                try {
+                    const urlObj = new URL(msg.url, 'http://localhost');
+                    const filename = path.basename(urlObj.pathname);
+                    const filePath = path.join(uploadsDir, filename);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                        console.log(`[DELETED] File removed by host: ${filename}`);
+                    }
+                } catch (err) {
+                    console.error('Error deleting file:', err);
+                }
+            }
+            messageHistory.splice(msgIndex, 1);
+            io.emit('message_deleted', messageId);
+        }
+    });
+
     socket.on('clear_messages', () => {
+        // Option to also delete all files on clear_messages? The user just asked for specific files right now.
         messageHistory.length = 0;
         io.emit('messages_cleared'); 
     });
@@ -460,8 +491,8 @@ io.on('connection', (socket) => {
         sessionManager.unregisterSocket(socket.id);
         broadcastUsersUpdate();
         
-        socket.broadcast.emit('user_stop_typing', { role: socket.role });
-        socket.broadcast.emit('user_stop_uploading', { role: socket.role });
+        socket.broadcast.emit('user_stop_typing', { role: socket.role, id: socket.id });
+        socket.broadcast.emit('user_stop_uploading', { role: socket.role, id: socket.id });
 
         if (socket.role === 'phone') {
             io.emit('device_disconnected');
